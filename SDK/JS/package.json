@@ -1,0 +1,56 @@
+{
+  "name": "@sugity/iris-node",
+  "version": "1.0.0",
+  "description": "Iris ecosystem SDK",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "require": "./dist/index.js",
+      "import": "./dist/index.mjs",
+      "types": "./dist/index.d.ts"
+    },
+    "./express": {
+      "require": "./dist/discovery/express.js",
+      "import": "./dist/discovery/express.mjs",
+      "types": "./dist/discovery/express.d.ts"
+    },
+    "./fastify": {
+      "require": "./dist/discovery/fastify.js",
+      "import": "./dist/discovery/fastify.mjs",
+      "types": "./dist/discovery/fastify.d.ts"
+    }
+  },
+  "sideEffects": false,
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "lint": "eslint src --ext .ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.16.0",
+    "express": "^4.19.2",
+    "fastify": "^4.28.1",
+    "tsup": "^8.2.4",
+    "typescript": "^5.5.4",
+    "vitest": "^2.0.5",
+    "undici": "^6.19.8"
+  },
+  "peerDependencies": {
+    "express": "^4.0.0",
+    "fastify": "^4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "express": { "optional": true },
+    "fastify": { "optional": true }
+  }
+}
