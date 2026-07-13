@@ -92,14 +92,30 @@ public function completeOrder(Iris $iris) {
 
 ## 4. JS / Node SDK Integration
 
+> **⚠️ REVISED SETUP — read before installing.** A plain `npm install @sugity/iris-node` followed by the naive Express wiring below used to be the documented path, but four undocumented traps in that flow caused routes to silently vanish or the process to crash on boot. The steps below are the corrected, known-good flow; each callout maps to the trap it fixes.
+
 ### Installation
+Add a setup script to `package.json` rather than installing the package directly — the SDK ships from the IRIS monorepo, not a standalone registry publish:
+```json
+"scripts": {
+  "setup:iris": "git clone --depth 1 --sparse https://github.com/RizkyDaffy/IRIS.git .iris-tmp && cd .iris-tmp && git sparse-checkout set SDK/JS && cd .. && npm install ./.iris-tmp/SDK/JS --install-links --legacy-peer-deps"
+}
+```
 ```bash
-npm install @sugity/iris-node
+npm run setup:iris
+```
+**Do not delete `.iris-tmp` afterward.** `--install-links` places a `file:.iris-tmp/SDK/JS` reference in `package.json`'s dependencies — if `.iris-tmp` is deleted, the next plain `npm install` (yours or a teammate's) finds the link target missing and silently drops the SDK from the project. Add `.iris-tmp` to `.gitignore` instead of removing it.
+
+### Compatibility: Express 4.x only (for now)
+`registerExpressApp()` reads Express's internal `app._router.stack` / `layer.regexp`. Express 5.x rewrote these behind closures (`layer.matchers`), so on Express 5 the discovery walk fails silently — no error, but **zero routes** reach the gateway. Pin Express to 4.x until the SDK adds 5.x support:
+```bash
+npm install express@^4.21.1 @types/express@^4.17.21
 ```
 
 ### Configuration
-Add to your `.env`:
+Give your API and the gateway distinct ports. Both default to `3001`-adjacent ranges, and if they collide, route payloads get sent to your own backend instead of the gateway — your backend 404s, the SDK swallows the error, and the routes just never show up with no clear signal why.
 ```env
+API_PORT=4000
 IRIS_PROJECT_TOKEN=your_generated_token_here
 IRIS_GATEWAY_URL=http://localhost:3001
 ```
@@ -112,17 +128,25 @@ import express from 'express';
 import { Iris } from '@sugity/iris-node';
 import { registerExpressApp } from '@sugity/iris-node/express';
 
-const iris = new Iris(); // Picks up IRIS_PROJECT_TOKEN automatically
+// Always pass an explicit object. `new Iris()` with zero arguments throws
+// (it reads .projectToken off an undefined config) before it ever gets a
+// chance to fall back to IRIS_PROJECT_TOKEN from .env — `new Iris({})` avoids that.
+const iris = new Iris({});
 const app = express();
 
 app.get('/api/users', (req, res) => res.send([]));
 
-app.listen(3000, async () => {
-    // 1. Validates token against gateway
-    await iris.init(); 
-    
-    // 2. Auto-discovers Express stack and POSTs to /ingress/register
-    await registerExpressApp(iris, app); 
+const server = app.listen(process.env.API_PORT ?? 4000, async () => {
+    try {
+        // 1. Validates token against gateway
+        await iris.init();
+
+        // 2. Auto-discovers Express stack and POSTs to /ingress/register
+        await registerExpressApp(iris, app);
+    } catch (err) {
+        // Non-fatal — a gateway outage at boot shouldn't crash the app
+        console.error('IRIS sync failed:', err.message);
+    }
 });
 ```
 **What it actually does:** `registerExpressApp` walks the internal Express `_router.stack`, pulls out the defined paths and methods, normalizes regex paths, and syncs them to the gateway.
@@ -157,3 +181,19 @@ app.post('/api/checkout', async (req, res) => {
 **4. Prisma "Can't reach database server"**
 - *Cause:* You restarted your machine and XAMPP MySQL didn't start automatically.
 - *Fix:* Open XAMPP Control Panel and start MySQL. No other config needed.
+
+**5. SDK disappears after a teammate runs `npm install` (JS/Node)**
+- *Cause:* `setup:iris` used `--install-links`, which points `package.json` at `file:.iris-tmp/SDK/JS`, and someone later ran `rm -rf .iris-tmp`. The next plain install can't resolve the link and drops the SDK.
+- *Fix:* Never delete `.iris-tmp` after running `setup:iris`. Add it to `.gitignore` instead of removing it.
+
+**6. Route count shows 0 in portal, no errors logged (JS/Express)**
+- *Cause:* Your project is on Express 5.x. `registerExpressApp()` reads Express 4-only internals (`_router.stack` / `layer.regexp`) and fails silently on Express 5's rewritten internals.
+- *Fix:* Pin `express` and `@types/express` to `^4.x` until the SDK supports Express 5.
+
+**7. `TypeError: Cannot read properties of undefined (reading 'projectToken')` on startup (JS)**
+- *Cause:* Calling `new Iris()` with zero arguments — the constructor doesn't default its config parameter, so it throws before it can fall back to `.env`.
+- *Fix:* Always call `new Iris({})` instead of `new Iris()`.
+
+**8. Routes never appear in portal, backend logs a 404 for the sync request (JS)**
+- *Cause:* Your API and `IRIS_GATEWAY_URL` are running on the same port, so the SDK's requests are hitting your own backend instead of the gateway.
+- *Fix:* Set an explicit `API_PORT` distinct from the gateway's port (e.g. `4000` vs `3001`).
