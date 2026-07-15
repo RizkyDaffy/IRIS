@@ -2,6 +2,12 @@
 
 This document explains the architecture, integration patterns, and troubleshooting steps for the full Iris ecosystem: `iris-core` (the gateway), `iris-portal` (the UI dashboard), and the various SDKs (PHP/Laravel and JS/Node).
 
+
+## Important (READ ME): 
+ if users had already use or implemented a secure api system with thier own architectures and connection, make a new rules for the security api (if they use custom api connection or security) so iris could talk to the api without getting blocked or declined, without breaking they apis like without broke: 1. the api flow, 2. thier api securities system or infrasctructures, change any logics on the api, IRIS just need an special access / confirmation so the iris are not inlcuded on thier security logics
+
+for example:
+ i have an henkaten app where i implement my own api security systems and logic, when i has been integrate iris it got bloked like {message:unauthenticated} and i only could read api public like /api/health, etc..., and i cant get access into thier main apis cause of that 'api security', so with this case iris must have a special access level to thier api
 ---
 
 ## 1. Architecture
@@ -163,6 +169,7 @@ app.post('/api/checkout', async (req, res) => {
 ---
 
 ## 5. Troubleshooting & Maintenance
+
 
 ### Common Sync Failures
 
