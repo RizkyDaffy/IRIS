@@ -145,7 +145,8 @@ app.post('/api/checkout', async (req, res) => {
 **1. (NEW) X-Iris-Admin-Key header that Iris now requires for admin routes**
 - *fix:* always put `X-Iris-Admin-Key: <your-admin-key>` header in your requests to iris-core
 - *example:* the 502 Request failed error by updating absence.js to send the new X-Iris-Admin-Key header that Iris now requires for admin routes 
-
+  *another example:* Failed to connect to iris-core: iris-core [401] /admin/applications: Invalid or missing X-Iris-Admin-Key
+- *fixes:*
 **2. Route count shows 0 in portal (PHP/Laravel)**
 - *Cause:* You tried to put `$iris->syncRoutes()` inside a Service Provider's `boot()` method in Laravel 11. 
 - *Fix:* Use `php artisan iris:sync`. The routes don't exist yet when `boot()` runs.
