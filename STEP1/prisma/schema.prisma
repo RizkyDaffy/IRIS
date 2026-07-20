@@ -1,0 +1,92 @@
+// ponytail: mysql for local XAMPP — free forever, no connection pool drama
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Application {
+  id          String         @id @default(cuid())
+  name        String         @unique
+  targetUrl   String
+  tokenHash   String         @unique
+  tokenPrefix String
+  isActive    Boolean        @default(true)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  routes      Route[]
+  routeSyncs  RouteSyncLog[]
+  outboxItems EventOutbox[]
+
+  @@index([tokenPrefix])
+}
+
+model Route {
+  id            String      @id @default(cuid())
+  applicationId String
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  path          String
+  method        String
+  description   String?
+  schema        Json?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@unique([applicationId, path, method])
+  @@index([applicationId])
+}
+
+model RouteSyncLog {
+  id            String      @id @default(cuid())
+  applicationId String
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  routeCount    Int
+  sourceIp      String?
+  syncedAt      DateTime    @default(now())
+
+  @@index([applicationId])
+}
+
+model EventOutbox {
+  id             String      @id @default(cuid())
+  applicationId  String
+  application    Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  event          String
+  routingKey     String
+  payload        Json
+  idempotencyKey String?     @unique
+  status         String      @default("pending")
+  attempts       Int         @default(0)
+  lastError      String?
+  createdAt      DateTime    @default(now())
+  publishedAt    DateTime?
+
+  @@index([status, createdAt])
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  DEVELOPER
+}
+
+enum UserStatus {
+  PENDING
+  ACTIVE
+  REJECTED
+}
+
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  passwordHash String
+  firstName    String
+  middleName   String?
+  role         Role       @default(DEVELOPER)
+  status       UserStatus @default(PENDING)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}

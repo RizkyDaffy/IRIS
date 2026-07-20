@@ -1,7 +1,7 @@
 // §3.3 View C — Event Log /app/[appId]/events
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { irisCore } from '@/lib/iris-core-client';
+import { irisCore, ApiError } from '@/lib/iris-core-client';
 import { EventTerminal } from '@/components/event-terminal';
 
 export const dynamic = 'force-dynamic';
@@ -18,8 +18,11 @@ export default async function EventsPage({ params }: Props) {
   // Just verify the app exists
   try {
     await irisCore.getApp(appId);
-  } catch {
-    notFound();
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) {
+      notFound();
+    }
+    throw error;
   }
 
   return (

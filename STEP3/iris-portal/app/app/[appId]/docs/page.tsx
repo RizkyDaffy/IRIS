@@ -1,7 +1,7 @@
 // §3.3 View B — API Explorer /app/[appId]/docs
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { irisCore } from '@/lib/iris-core-client';
+import { irisCore, ApiError } from '@/lib/iris-core-client';
 import { MethodBadge } from '@/components/ui/method-badge';
 import { CopyCurlButton } from '@/components/ui/copy-curl-button';
 
@@ -22,8 +22,11 @@ export default async function DocsPage({ params, searchParams }: Props) {
   let app;
   try {
     app = await irisCore.getApp(appId);
-  } catch {
-    notFound();
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) {
+      notFound();
+    }
+    throw error;
   }
 
   // Filter state in URL per spec §3.3

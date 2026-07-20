@@ -2,16 +2,29 @@
 // ponytail: thin typed wrapper over fetch — no SDK dep in the portal
 const BASE = (process.env.IRIS_CORE_URL || 'http://localhost:3001').replace(/\/$/, '');
 
+export class ApiError extends Error {
+  constructor(public status: number, message: string) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
 async function apiFetch<T>(path: string, init?: RequestInit, attempt = 0): Promise<T> {
   let res: Response;
   try {
+    const defaultHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (process.env.IRIS_ADMIN_KEY) {
+      defaultHeaders['X-Iris-Admin-Key'] = process.env.IRIS_ADMIN_KEY;
+    }
+    
     res = await fetch(`${BASE}${path}`, {
       ...init,
-      headers: { 'Content-Type': 'application/json', ...init?.headers as object },
+      headers: { ...defaultHeaders, ...(init?.headers as object) },
       cache: 'no-store',
     });
   } catch (err: any) {
     if (attempt === 0) return apiFetch(path, init, 1); // retry once on network error
+    console.error(`[apiFetch Network Error] ${path}:`, err.message);
     throw new Error(`iris-core unreachable at ${BASE} — ${err.message}`);
   }
 
@@ -20,7 +33,8 @@ async function apiFetch<T>(path: string, init?: RequestInit, attempt = 0): Promi
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     const msg = body?.error?.message || body?.message || `HTTP ${res.status}`;
-    throw new Error(`iris-core [${res.status}] ${path}: ${msg}`);
+    console.error(`[apiFetch HTTP Error] ${res.status} ${path}:`, msg);
+    throw new ApiError(res.status, `iris-core [${res.status}] ${path}: ${msg}`);
   }
   return res.json() as Promise<T>;
 }
